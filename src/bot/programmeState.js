@@ -1,8 +1,7 @@
 const dayjs = require("dayjs");
+const fs = require("fs");
 const config = require("../config");
 
-// In-memory state (survives restarts via simple file-based persistence)
-const fs = require("fs");
 const STATE_FILE = "./logs/state.json";
 
 function loadState() {
@@ -11,9 +10,11 @@ function loadState() {
   } catch {}
   return {
     startDate: null,
-    currentDay: 0,
-    todaysMeals: [],
     active: false,
+    todaysMeals: [],
+    todaysWaterMl: 0,
+    todaysExercises: [],
+    todaysSleep: null,
   };
 }
 
@@ -26,21 +27,26 @@ let state = loadState();
 
 function startProgramme() {
   state.startDate = dayjs().format("YYYY-MM-DD");
-  state.currentDay = 1;
-  state.todaysMeals = [];
   state.active = true;
+  state.todaysMeals = [];
+  state.todaysWaterMl = 0;
+  state.todaysExercises = [];
+  state.todaysSleep = null;
   saveState(state);
 }
 
 function getCurrentDay() {
   if (!state.startDate) return 0;
-  const start = dayjs(state.startDate);
-  const today = dayjs();
-  return Math.min(today.diff(start, "day") + 1, config.programme.days);
+  return Math.min(dayjs().diff(dayjs(state.startDate), "day") + 1, config.programme.days);
 }
 
-function addMeal(mealEntry) {
-  state.todaysMeals.push(mealEntry);
+function isActive() {
+  return state.active && getCurrentDay() <= config.programme.days;
+}
+
+// ── Meals ────────────────────────────────────────────────────────────────────
+function addMeal(entry) {
+  state.todaysMeals.push(entry);
   saveState(state);
 }
 
@@ -48,17 +54,66 @@ function getTodaysMeals() {
   return state.todaysMeals;
 }
 
-function resetDayMeals() {
-  state.todaysMeals = [];
+// ── Water ────────────────────────────────────────────────────────────────────
+function addWater(ml) {
+  state.todaysWaterMl = (state.todaysWaterMl || 0) + ml;
+  saveState(state);
+  return state.todaysWaterMl;
+}
+
+function getTodaysWater() {
+  return state.todaysWaterMl || 0;
+}
+
+// ── Exercise ─────────────────────────────────────────────────────────────────
+function addExercise(description) {
+  if (!state.todaysExercises) state.todaysExercises = [];
+  state.todaysExercises.push(description);
   saveState(state);
 }
 
-function isActive() {
-  return state.active && getCurrentDay() <= config.programme.days;
+function getTodaysExercises() {
+  return state.todaysExercises || [];
+}
+
+// ── Sleep ────────────────────────────────────────────────────────────────────
+function setSleep(hours, quality) {
+  state.todaysSleep = { hours, quality };
+  saveState(state);
+}
+
+function getTodaysSleep() {
+  return state.todaysSleep || null;
+}
+
+// ── Day reset (called at midnight by scheduler) ──────────────────────────────
+function resetDay() {
+  state.todaysMeals = [];
+  state.todaysWaterMl = 0;
+  state.todaysExercises = [];
+  state.todaysSleep = null;
+  saveState(state);
 }
 
 function getState() {
-  return { ...state, currentDay: getCurrentDay() };
+  return {
+    ...state,
+    currentDay: getCurrentDay(),
+  };
 }
 
-module.exports = { startProgramme, getCurrentDay, addMeal, getTodaysMeals, resetDayMeals, isActive, getState };
+module.exports = {
+  startProgramme,
+  getCurrentDay,
+  isActive,
+  getState,
+  addMeal,
+  getTodaysMeals,
+  addWater,
+  getTodaysWater,
+  addExercise,
+  getTodaysExercises,
+  setSleep,
+  getTodaysSleep,
+  resetDay,
+};

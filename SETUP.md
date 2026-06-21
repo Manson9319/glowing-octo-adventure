@@ -133,38 +133,51 @@ In the Telegram group, send:
 
 ## Daily Usage
 
-| Who | What to send |
-|-----|-------------|
-| ChloeLeow | `早餐 燕麦粥加蓝莓和坚果` |
-| ChloeLeow | `lunch grilled chicken with brown rice and salad` |
-| ChloeLeow | `晚餐 蒸鱼配蔬菜和糙米` |
-| Anyone | `/summary` — generate today's health summary |
-| Anyone | `/today` — list today's meals |
-| Anyone | `/status` — programme progress |
+| Who | What to send | How |
+|-----|-------------|-----|
+| ChloeLeow | Meal photo | 📸 Take photo + optional caption like "早餐" |
+| ChloeLeow | Text meal | `早餐 燕麦粥加蓝莓` / `lunch grilled chicken rice` |
+| ChloeLeow | Water intake | `喝了500ml水` / `3 glasses water` / `minum 1 liter` |
+| ChloeLeow | Exercise | `跑步30分钟` / `gym 1 hour` / `yoga 45 mins` |
+| ChloeLeow | Sleep | `昨晚睡了7小时` / `sleep 11pm wake 6am` / `tidur 6 jam` |
+| Anyone | `/today` | View all 4 categories for today |
+| Anyone | `/summary` | Generate full daily health summary |
+| Anyone | `/status` | Programme progress |
 
 **AI will automatically:**
-- Analyse GI index for each meal
-- Assess blood sugar impact
-- Provide metabolism tips
-- Send daily reminders (7:30am, 12pm, 7:30pm)
-- Auto-generate daily summary at 10pm
-- Generate weekly report every Sunday 9pm
+- 📸 **Identify food from photos** using Gemini Vision + analyse GI/metabolism
+- 📝 Analyse text meal descriptions (GI, blood sugar, metabolism impact)
+- 💧 Track water progress toward 2500ml daily goal
+- 🏃 Assess exercise type, estimated calorie burn, metabolic boost
+- 😴 Evaluate sleep hours + quality and their effect on metabolism
+- ⏰ Send timed reminders: 7:30am · 10am · 12pm · 3pm · 7:30pm
+- 📅 Auto-generate full daily summary at 10pm (includes all 4 types)
+- 📊 Generate weekly report every Sunday 9pm
 
 ---
 
-## Google Sheet Columns
+## Google Sheet Structure (7 tabs)
 
-### Daily Meals tab
-| Day | Date | Time | Meal Type | Description | GI Score | AI Analysis | Logged By | Timestamp |
+### Tab 1: Daily Meals
+| Day | Date | Time | Meal Type | Description | GI Score | Has Photo | AI Analysis | Logged By | Timestamp |
 
-### Daily Summary tab
-| Day | Date | Total Meals | Daily Summary | Timestamp |
+### Tab 2: Water Intake
+| Day | Date | Time | Raw Text | Water (ml) | Daily Total (ml) | AI Response | Logged By | Timestamp |
 
-### Weekly Report tab
+### Tab 3: Exercise Log
+| Day | Date | Time | Raw Text | Exercise Type | Duration (min) | AI Analysis | Logged By | Timestamp |
+
+### Tab 4: Sleep Log
+| Day | Date | Raw Text | Sleep Hours | Quality | AI Analysis | Logged By | Timestamp |
+
+### Tab 5: Daily Summary
+| Day | Date | Total Meals | Water (ml) | Exercise Sessions | Sleep Hours | Daily Summary | Timestamp |
+
+### Tab 6: Weekly Report
 | Week | Date Range | Weekly Report | Timestamp |
 
-### Progress Tracker tab
-| Day | Date | Meals Logged | Avg GI | Notes | Timestamp |
+### Tab 7: Progress Tracker
+| Day | Date | Meals Logged | Avg GI | Water (ml) | Exercise Sessions | Sleep Hours | Notes | Timestamp |
 
 ---
 

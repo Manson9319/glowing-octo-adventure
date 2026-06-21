@@ -1,10 +1,12 @@
 const { google } = require("googleapis");
 const fs = require("fs");
-const dayjs = require("dayjs");
 const config = require("../config");
 
 const SHEETS = {
   MEALS: "Daily Meals",
+  WATER: "Water Intake",
+  EXERCISE: "Exercise Log",
+  SLEEP: "Sleep Log",
   SUMMARY: "Daily Summary",
   WEEKLY: "Weekly Report",
   PROGRESS: "Progress Tracker",
@@ -35,48 +37,87 @@ async function appendRow(sheetName, values) {
   });
 }
 
-async function logMeal({ day, date, time, mealType, description, aiAnalysis, giScore, username }) {
-  const row = [
-    day,
-    date,
-    time,
-    mealType,
-    description,
-    giScore || "",
-    aiAnalysis,
-    username,
-    new Date().toISOString(),
-  ];
-  await appendRow(SHEETS.MEALS, row);
+// ── Meals ────────────────────────────────────────────────────────────────────
+async function logMeal({ day, date, time, mealType, description, aiAnalysis, giScore, hasPhoto, username }) {
+  await appendRow(SHEETS.MEALS, [
+    day, date, time, mealType, description,
+    giScore || "", hasPhoto ? "Yes" : "No",
+    aiAnalysis, username, new Date().toISOString(),
+  ]);
 }
 
-async function logDailySummary({ day, date, summary, totalMeals }) {
-  const row = [day, date, totalMeals, summary, new Date().toISOString()];
-  await appendRow(SHEETS.SUMMARY, row);
+// ── Water ────────────────────────────────────────────────────────────────────
+async function logWater({ day, date, time, rawText, waterMl, dailyTotalMl, aiAnalysis, username }) {
+  await appendRow(SHEETS.WATER, [
+    day, date, time, rawText, waterMl, dailyTotalMl,
+    aiAnalysis, username, new Date().toISOString(),
+  ]);
 }
 
+// ── Exercise ─────────────────────────────────────────────────────────────────
+async function logExercise({ day, date, time, rawText, exerciseType, durationMin, aiAnalysis, username }) {
+  await appendRow(SHEETS.EXERCISE, [
+    day, date, time, rawText,
+    exerciseType || "", durationMin || "",
+    aiAnalysis, username, new Date().toISOString(),
+  ]);
+}
+
+// ── Sleep ────────────────────────────────────────────────────────────────────
+async function logSleep({ day, date, rawText, sleepHours, quality, aiAnalysis, username }) {
+  await appendRow(SHEETS.SLEEP, [
+    day, date, rawText, sleepHours || "", quality || "",
+    aiAnalysis, username, new Date().toISOString(),
+  ]);
+}
+
+// ── Daily summary ────────────────────────────────────────────────────────────
+async function logDailySummary({ day, date, summary, totalMeals, totalWaterMl, totalExercises, sleepHours }) {
+  await appendRow(SHEETS.SUMMARY, [
+    day, date, totalMeals, totalWaterMl || 0,
+    totalExercises || 0, sleepHours || "",
+    summary, new Date().toISOString(),
+  ]);
+}
+
+// ── Weekly report ────────────────────────────────────────────────────────────
 async function logWeeklyReport({ week, dateRange, report }) {
-  const row = [week, dateRange, report, new Date().toISOString()];
-  await appendRow(SHEETS.WEEKLY, row);
+  await appendRow(SHEETS.WEEKLY, [week, dateRange, report, new Date().toISOString()]);
 }
 
-async function updateProgress({ day, date, mealsLogged, avgGI, notes }) {
-  const row = [day, date, mealsLogged, avgGI || "", notes || "", new Date().toISOString()];
-  await appendRow(SHEETS.PROGRESS, row);
+// ── Progress tracker ─────────────────────────────────────────────────────────
+async function updateProgress({ day, date, mealsLogged, avgGI, waterMl, exerciseCount, sleepHours, notes }) {
+  await appendRow(SHEETS.PROGRESS, [
+    day, date, mealsLogged, avgGI || "",
+    waterMl || 0, exerciseCount || 0, sleepHours || "",
+    notes || "", new Date().toISOString(),
+  ]);
 }
 
-// Called once to set up all sheet headers
+// ── One-time setup ───────────────────────────────────────────────────────────
 async function setupHeaders() {
   const sheets = await getClient();
 
   const headerSets = [
     {
       range: `${SHEETS.MEALS}!A1`,
-      values: [["Day", "Date", "Time", "Meal Type", "Description", "GI Score", "AI Analysis", "Logged By", "Timestamp"]],
+      values: [["Day", "Date", "Time", "Meal Type", "Description", "GI Score", "Has Photo", "AI Analysis", "Logged By", "Timestamp"]],
+    },
+    {
+      range: `${SHEETS.WATER}!A1`,
+      values: [["Day", "Date", "Time", "Raw Text", "Water (ml)", "Daily Total (ml)", "AI Response", "Logged By", "Timestamp"]],
+    },
+    {
+      range: `${SHEETS.EXERCISE}!A1`,
+      values: [["Day", "Date", "Time", "Raw Text", "Exercise Type", "Duration (min)", "AI Analysis", "Logged By", "Timestamp"]],
+    },
+    {
+      range: `${SHEETS.SLEEP}!A1`,
+      values: [["Day", "Date", "Raw Text", "Sleep Hours", "Quality", "AI Analysis", "Logged By", "Timestamp"]],
     },
     {
       range: `${SHEETS.SUMMARY}!A1`,
-      values: [["Day", "Date", "Total Meals", "Daily Summary", "Timestamp"]],
+      values: [["Day", "Date", "Total Meals", "Water (ml)", "Exercise Sessions", "Sleep Hours", "Daily Summary", "Timestamp"]],
     },
     {
       range: `${SHEETS.WEEKLY}!A1`,
@@ -84,7 +125,7 @@ async function setupHeaders() {
     },
     {
       range: `${SHEETS.PROGRESS}!A1`,
-      values: [["Day", "Date", "Meals Logged", "Avg GI", "Notes", "Timestamp"]],
+      values: [["Day", "Date", "Meals Logged", "Avg GI", "Water (ml)", "Exercise Sessions", "Sleep Hours", "Notes", "Timestamp"]],
     },
   ];
 
@@ -96,7 +137,11 @@ async function setupHeaders() {
       requestBody: { values },
     });
   }
-  console.log("Google Sheet headers set up successfully.");
+  console.log("Google Sheet headers set up successfully (7 tabs).");
 }
 
-module.exports = { logMeal, logDailySummary, logWeeklyReport, updateProgress, setupHeaders };
+module.exports = {
+  logMeal, logWater, logExercise, logSleep,
+  logDailySummary, logWeeklyReport, updateProgress,
+  setupHeaders,
+};
