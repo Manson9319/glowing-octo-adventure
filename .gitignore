@@ -1,0 +1,13 @@
+# Secrets — NEVER commit these
+.env
+secrets/
+*.json.key
+*service-account*.json
+
+# Runtime
+logs/
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db

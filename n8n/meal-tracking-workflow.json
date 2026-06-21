@@ -1,0 +1,82 @@
+{
+  "name": "Meal Tracking - Telegram to Google Sheet",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message"],
+        "additionalFields": {}
+      },
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "credentials": {
+        "telegramApi": { "name": "Telegram Bot" }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.message.text }}",
+              "operation": "contains",
+              "value2": "breakfast"
+            }
+          ]
+        }
+      },
+      "name": "Is Meal Message?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "✅ Meal logged! AI is analysing...",
+        "additionalFields": {}
+      },
+      "name": "Acknowledge",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [680, 200],
+      "credentials": {
+        "telegramApi": { "name": "Telegram Bot" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "__rl": true, "mode": "id", "value": "YOUR_GOOGLE_SHEET_ID" },
+        "sheetName": { "__rl": true, "mode": "name", "value": "Daily Meals" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{ new Date().toLocaleDateString('en-MY') }}",
+            "Time": "={{ new Date().toLocaleTimeString('en-MY') }}",
+            "Description": "={{ $json.message.text }}",
+            "From": "={{ $json.message.from.username || $json.message.from.first_name }}"
+          }
+        }
+      },
+      "name": "Log to Google Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [900, 200],
+      "credentials": {
+        "googleSheetsOAuth2Api": { "name": "Google Sheets" }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": { "main": [[{ "node": "Is Meal Message?", "type": "main", "index": 0 }]] },
+    "Is Meal Message?": { "main": [[{ "node": "Acknowledge", "type": "main", "index": 0 }]] },
+    "Acknowledge": { "main": [[{ "node": "Log to Google Sheet", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "1"
+}

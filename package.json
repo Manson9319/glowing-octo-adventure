@@ -1,0 +1,19 @@
+{
+  "name": "meal-tracking-group-chat",
+  "version": "1.0.0",
+  "description": "30-day meal tracking group chat bot for ChloeLeow — metabolism & low-GI programme",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "setup-sheet": "node src/scripts/setupGoogleSheet.js"
+  },
+  "dependencies": {
+    "node-telegram-bot-api": "^0.66.0",
+    "googleapis": "^144.0.0",
+    "@google/generative-ai": "^0.21.0",
+    "dotenv": "^16.4.5",
+    "dayjs": "^1.11.12",
+    "express": "^4.19.2"
+  }
+}
