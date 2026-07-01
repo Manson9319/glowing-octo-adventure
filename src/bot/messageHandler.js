@@ -2,12 +2,13 @@ const dayjs = require("dayjs");
 const {
   analyzeMeal, analyzeMealPhoto,
   analyzeWater, analyzeExercise, analyzeSleep,
-  generateDailySummary,
+  generateDailySummary, generateProgressReport,
 } = require("../ai/healthAssistant");
 const {
   logMeal, logWater, logExercise, logSleep,
   logDailySummary, updateProgress,
 } = require("../sheets/googleSheets");
+const { fetchProgressData } = require("../sheets/reportData");
 const {
   addMeal, getTodaysMeals,
   addWater, getTodaysWater,
@@ -401,6 +402,56 @@ async function handleCommand(bot, chatId, text, username) {
       break;
     }
 
+    case "/report7":
+    case "/report14": {
+      const reportDays = cmd === "/report7" ? 7 : 14;
+      await bot.sendMessage(
+        chatId,
+        `📊 正在生成 ${config.programme.clientName} 的 *${reportDays}天专业健康报告*，请稍候...`
+      );
+      await bot.sendChatAction(chatId, "typing");
+
+      let data;
+      try {
+        data = await fetchProgressData(reportDays);
+      } catch (err) {
+        console.error("Report data fetch error:", err.message);
+        await bot.sendMessage(
+          chatId,
+          `⚠️ 无法读取 Google Sheet 数据。\n请确认：\n1. GOOGLE_SHEET_ID 已设置\n2. Service Account 已授权\n3. 已运行 npm run setup-sheet`
+        );
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        await bot.sendMessage(
+          chatId,
+          `📭 还没有足够的数据生成 ${reportDays} 天报告。\n请确保 Progress Tracker 表格有至少 1 天的记录。`
+        );
+        return;
+      }
+
+      let report;
+      try {
+        report = await generateProgressReport(
+          reportDays, data,
+          config.programme.clientName,
+          config.programme.mentorName
+        );
+      } catch (err) {
+        console.error("Report generation error:", err.message);
+        await bot.sendMessage(chatId, "⚠️ AI 报告生成失败，请稍后重试。");
+        return;
+      }
+
+      // Telegram has 4096 char limit — split if needed
+      const chunks = splitMessage(report, 4000);
+      for (const chunk of chunks) {
+        await bot.sendMessage(chatId, chunk, { parse_mode: "Markdown" });
+      }
+      break;
+    }
+
     case "/help": {
       await bot.sendMessage(
         chatId,
@@ -413,6 +464,8 @@ async function handleCommand(bot, chatId, text, username) {
         `*指令：*\n` +
         `/today — 今日所有记录\n` +
         `/summary — 生成今日健康总结\n` +
+        `/report7 — 7天专业进度报告\n` +
+        `/report14 — 14天专业进度报告\n` +
         `/status — 计划进度\n` +
         `/start30days — 开始计划`,
         { parse_mode: "Markdown" }
@@ -420,6 +473,22 @@ async function handleCommand(bot, chatId, text, username) {
       break;
     }
   }
+}
+
+// Split long messages for Telegram's 4096 char limit
+function splitMessage(text, maxLen = 4000) {
+  if (text.length <= maxLen) return [text];
+  const chunks = [];
+  let remaining = text;
+  while (remaining.length > maxLen) {
+    // Try to split at a newline near the limit
+    let splitAt = remaining.lastIndexOf("\n", maxLen);
+    if (splitAt < maxLen * 0.5) splitAt = maxLen;
+    chunks.push(remaining.slice(0, splitAt));
+    remaining = remaining.slice(splitAt).trimStart();
+  }
+  if (remaining) chunks.push(remaining);
+  return chunks;
 }
 
 module.exports = { handleMessage };

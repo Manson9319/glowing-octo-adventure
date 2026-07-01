@@ -6,7 +6,11 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "setup-sheet": "node src/scripts/setupGoogleSheet.js"
+    "setup-sheet": "node src/scripts/setupGoogleSheet.js",
+    "report:7": "node src/scripts/generateReport.js 7",
+    "report:14": "node src/scripts/generateReport.js 14",
+    "report:7:send": "node src/scripts/generateReport.js 7 --send",
+    "report:14:send": "node src/scripts/generateReport.js 14 --send"
   },
   "dependencies": {
     "node-telegram-bot-api": "^0.66.0",

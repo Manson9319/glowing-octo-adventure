@@ -186,6 +186,156 @@ ${JSON.stringify(weekData, null, 2)}
   return result.response.text();
 }
 
+// ── Progress report (7-day or 14-day) ───────────────────────────────────────
+async function generateProgressReport(days, data, clientName, mentorName) {
+  // Aggregate statistics
+  const totalDays = data.length;
+  const daysWithMeals = data.filter((d) => d.mealsLogged > 0).length;
+  const daysWithExercise = data.filter((d) => d.exerciseSessions > 0).length;
+  const daysWithSleep = data.filter((d) => d.sleepHours > 0).length;
+
+  const avgWater = totalDays
+    ? Math.round(data.reduce((s, d) => s + (d.waterMl || 0), 0) / totalDays)
+    : 0;
+  const avgSleep = daysWithSleep
+    ? parseFloat((data.filter((d) => d.sleepHours > 0).reduce((s, d) => s + d.sleepHours, 0) / daysWithSleep).toFixed(1))
+    : 0;
+  const avgMeals = totalDays
+    ? parseFloat((data.reduce((s, d) => s + d.mealsLogged, 0) / totalDays).toFixed(1))
+    : 0;
+
+  // GI breakdown
+  const allMeals = data.flatMap((d) => d.meals || []);
+  const giCounts = { Low: 0, Medium: 0, High: 0, "N/A": 0 };
+  for (const m of allMeals) giCounts[m.giScore] = (giCounts[m.giScore] || 0) + 1;
+  const totalMealsWithGI = allMeals.filter((m) => m.giScore !== "N/A").length || 1;
+  const lowGIPct = Math.round((giCounts.Low / totalMealsWithGI) * 100);
+
+  // Sleep quality
+  const sleepRows = data.flatMap((d) => (d.sleep ? [d.sleep] : []));
+  const goodSleepDays = sleepRows.filter((s) => s.quality === "Good").length;
+  const poorSleepDays = sleepRows.filter((s) => s.quality === "Poor").length;
+
+  // Engagement (mental state proxy)
+  const loggingRate = Math.round((daysWithMeals / days) * 100);
+  const exerciseRate = Math.round((daysWithExercise / days) * 100);
+  const waterGoalDays = data.filter((d) => (d.waterMl || 0) >= 2500).length;
+
+  // Water trend (first half vs second half)
+  const half = Math.ceil(totalDays / 2);
+  const firstHalfWater = data.slice(0, half).reduce((s, d) => s + (d.waterMl || 0), 0) / half;
+  const secondHalfWater = data.slice(half).reduce((s, d) => s + (d.waterMl || 0), 0) / (totalDays - half || 1);
+  const waterTrend = secondHalfWater > firstHalfWater + 100 ? "上升📈" : secondHalfWater < firstHalfWater - 100 ? "下降📉" : "稳定➡️";
+
+  // Daily detail string (compact)
+  const dailyDetail = data
+    .map((d) => {
+      const sleepStr = d.sleep ? `${d.sleep.hours}h(${d.sleep.quality})` : "无";
+      return `Day${d.day}[${d.date}]: 餐${d.mealsLogged}次 水${d.waterMl}ml 运动${d.exerciseSessions}次 睡眠${sleepStr}`;
+    })
+    .join("\n");
+
+  // Exercise details
+  const exerciseList = data
+    .filter((d) => d.exercises?.length)
+    .flatMap((d) => d.exercises.map((e) => `${e.type}${e.durationMin ? `(${e.durationMin}min)` : ""}`))
+    .join(", ") || "无记录";
+
+  const reportType = `${days}天`;
+  const dateRange = data.length
+    ? `${data[0].date} 至 ${data[data.length - 1].date}`
+    : `最近${days}天`;
+
+  const prompt = `你是一位专业的营养师兼健康教练，正在为学员 ${clientName} 撰写${reportType}健康进度报告，供导师 ${mentorName || "Anniisa"} 参考。
+
+━━━━ 原始统计数据 ━━━━
+📅 报告期间：${dateRange}（共${totalDays}天有记录）
+📊 记录率：${daysWithMeals}/${days}天有餐饮记录（${loggingRate}%）
+
+【饮食数据】
+- 平均每日餐次：${avgMeals} 次
+- 低GI餐点比例：${lowGIPct}%（低GI:${giCounts.Low} 中GI:${giCounts.Medium} 高GI:${giCounts.High}）
+- 照片记录餐点：${allMeals.filter((m) => m.hasPhoto).length} 次
+
+【水分数据】
+- 平均每日摄取：${avgWater}ml（目标2500ml）
+- 达标天数：${waterGoalDays}/${days}天
+- 趋势：${waterTrend}
+
+【运动数据】
+- 运动天数：${daysWithExercise}/${days}天（${exerciseRate}%）
+- 运动内容：${exerciseList}
+
+【睡眠数据】
+- 平均睡眠：${avgSleep}小时
+- 有记录天数：${daysWithSleep}/${days}天
+- 好眠：${goodSleepDays}天 / 差眠：${poorSleepDays}天
+
+【每日明细】
+${dailyDetail}
+
+━━━━ 报告格式要求 ━━━━
+请用专业但温暖的语气，以中文为主，生成以下格式的${reportType}进度报告：
+
+═══════════════════════════════
+📋 ${clientName} ${reportType}健康进度报告
+📅 ${dateRange}
+导师：${mentorName || "Anniisa"} | AI助理分析
+═══════════════════════════════
+
+【一】饮食营养均衡 & 分量分析
+- 整体评级（优/良/中/待改善）
+- GI指数分布解读
+- 营养均衡性评估（蛋白质、膳食纤维、碳水化合物）
+- 分量控制观察
+- 具体改善方向
+
+【二】饮水量分析
+- 整体评级
+- 平均摄取量 vs 目标达成率
+- 水分对本阶段代谢的影响分析
+- 趋势评语与建议
+
+【三】睡眠分析
+- 整体评级
+- 平均睡眠时长 & 质量评估
+- 睡眠不足对血糖和代谢的具体影响
+- 改善建议
+
+【四】运动分析
+- 整体评级
+- 运动规律性与多样性
+- 对代谢率提升的贡献评估
+- 下阶段运动建议
+
+【五】精神状态 & 执行力分析
+（根据记录规律性、食物选择、运动坚持度综合推断）
+- 整体参与度评估
+- 动力曲线分析
+- 心理支持建议
+
+【六】综合总结
+- 本${reportType}最大亮点（3条）
+- 需要重点改善事项（3条）
+- 下阶段（接下来${days}天）具体行动计划
+
+【七】导师 ${mentorName || "Anniisa"} 建议栏
+（预留空白，供导师手动补充专业意见）
+___________________________________
+___________________________________
+___________________________________
+
+评分总览：
+🍽 饮食: ___/10  💧 水分: ___/10  😴 睡眠: ___/10  🏃 运动: ___/10  🧠 状态: ___/10
+综合评分: ___/10
+
+保持专业、数据驱动、有温度、给予鼓励。`;
+
+  const reportModel = getClient().getGenerativeModel({ model: config.gemini.model });
+  const result = await reportModel.generateContent(prompt);
+  return result.response.text();
+}
+
 module.exports = {
   analyzeMeal,
   analyzeMealPhoto,
@@ -194,4 +344,5 @@ module.exports = {
   analyzeSleep,
   generateDailySummary,
   generateWeeklyReport,
+  generateProgressReport,
 };
